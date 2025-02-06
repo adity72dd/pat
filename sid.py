@@ -8,8 +8,8 @@ from config import BOT_TOKEN, OWNER_USERNAME, CHANNEL_LINK, CHANNEL_LOGO
 
 USER_FILE = "users.json"
 ADMIN_FILE = "admins.json"
-DEFAULT_THREADS = 2000
-DEFAULT_PACKET = 9
+DEFAULT_THREADS = 2700
+DEFAULT_PACKET = 17
 DEFAULT_DURATION = 200  # Default attack duration
 
 users = {}
@@ -45,7 +45,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = (
         "🚀 **Welcome to the Attack Bot!** 🚀\n\n"
         "🔹 This bot allows you to launch attacks using /attack.\n"
-        "🔹 Contact me for paid services @Riyahacksyt.\n"
+        "🔹 Contact me for paid services @PATHAN_STORE_X.\n"
         "🔹 Join our channel for updates:\n"
         f"[🔗 Click Here]({CHANNEL_LINK})\n\n"
         "💻 **Developed by**: " + f"@{OWNER_USERNAME}"
