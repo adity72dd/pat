@@ -1,7 +1,7 @@
 # SCRIPT BY: Riyahacksyt  
 
 # Enter your Bot Token (Get it from @BotFather)
-BOT_TOKEN = "8081144118:AAG1_JNTvPJDInw9M5EOfPj1KAxDT8mP73Y"
+BOT_TOKEN = "7331112380:AAF2Z625cNR1o7MlWM3HHoABwqQXElFtbT4"
 
 # Enter your Telegram username (without @)
 OWNER_USERNAME = "Riyahacksyt"
