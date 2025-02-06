@@ -8,8 +8,8 @@ from config import BOT_TOKEN, OWNER_USERNAME, CHANNEL_LINK, CHANNEL_LOGO
 
 USER_FILE = "users.json"
 ADMIN_FILE = "admins.json"
-DEFAULT_THREADS = 2700
-DEFAULT_PACKET = 17
+DEFAULT_THREADS = 4000
+DEFAULT_PACKET = 25
 DEFAULT_DURATION = 200  # Default attack duration
 
 users = {}
