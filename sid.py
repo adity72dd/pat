@@ -9,7 +9,7 @@ from config import BOT_TOKEN, ADMIN_IDS, OWNER_USERNAME
 
 USER_FILE = "users.json"
 DEFAULT_THREADS = 2000
-DEFAULT_PACKET = 11
+DEFAULT_PACKET = 10
 DEFAULT_DURATION = 240  # Set default duration (e.g., 60 seconds)
 
 users = {}
