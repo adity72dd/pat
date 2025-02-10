@@ -8,7 +8,7 @@ from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 from config import BOT_TOKEN, ADMIN_IDS, OWNER_USERNAME
 
 USER_FILE = "users.json"
-DEFAULT_THREADS = 200
+DEFAULT_THREADS = 1600
 DEFAULT_PACKET = 8
 DEFAULT_DURATION = 180  # Set default duration (e.g., 60 seconds)
 
